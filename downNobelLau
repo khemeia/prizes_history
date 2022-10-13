@@ -1,0 +1,19 @@
+#!/bin/bash
+baseURL="https://www.nobelprize.org/nomination/archive";
+subjectArea=(Physics Chemistry PhysiologyMedicine Literature Peace)
+#subjectArea=(Chemistry)
+cd python/resources/htmldb
+
+for ((p=1;p<=1;p++))
+do
+    prize=${subjectArea[p]}
+    for ((year=1901;year<=1971;year++))
+    do
+	wget --user-agent="Mozilla Firefox 48.0" -O - "$baseURL/list.php" --post-data "year=$year&prize=$(expr $p + 1)" | egrep -o "show\.php.id=[0-9]+" > $prize-$year.url
+	for nn in $(cat $prize-$year.url)
+	do
+	    id=$(echo $nn|sed 's/.*id=\([0-9]*\)/\1/')
+	    wget -o download.log --user-agent="Mozilla Firefox 48.0" -O - "$baseURL/$nn" > $prize-$year-$id.html
+	done
+    done
+done
