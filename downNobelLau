@@ -1,5 +1,6 @@
 #!/bin/bash
 baseURL="https://www.nobelprize.org/nomination/archive";
+mkdir temphtmldir 
 cd temphtmldir/ 
 prize=Chemistry
 for ((year=1901;year<=1971;year++))
