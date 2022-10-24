@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import sys
 import os
 import re
-from models import Person, Relationship, CategorizedRelationship
+import glob
+import sys
+from models import Person
 from mongoHandler import MongoHandler
 import html
 properties = [
@@ -26,45 +27,28 @@ class Parser:
         self.file_name = file_name
         self.handler = handler
 
-    def parse(self):
-        # alues = re.findall('<td.*>', self.main)
-        nominees_data, nominator_data = self.get_people()
-        nominees = []
-        nominator = Person()
-        for nominee in nominees_data:
-            person = Person()
-            self.parse_properties(nominee, person)
-            self.parse_name(nominee, person)
-            nominees.append(person)
-        self.parse_properties(nominator_data.group(), nominator)
-        self.parse_name(nominator_data.group(), nominator)
-        for nominee in nominees:
-            print("Nominee(s){0}".format(nominee.name))
-            print("Nominee Gender: {0}".format(nominee.death))
-        print("Nominator: {0}".format(nominator.name))
-        self.handler.insert_person(nominator)
-
-    def export_people(self, onPerson):
+    def export_people(self, onPerson=None):
         # because just the nominees have the info if they won or not
-        print("Nominee file" + self.file_name)
+        # print("Nominee file" + self.file_name)
         persons_data = self.get_all_people()
         for current in persons_data:
             person = Person()
             self.parse_properties(current, person)
             self.parse_name(current, person)
             self.parse_prize(current, person)
-            print("Nominee(s){0}".format(person.name))
-            onPerson(person, self)
+            # print("Nominee(s){0}".format(person.name))
+            self.handler.insert_person(person)
+            # onPerson(person, self)
 
     def get_nominees(self):
         return re.findall(
-            'Nominee(?: \d)?:</b>[\s\S]*?(?=<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
+            'Nominee(?: \\d)?:</b>[\\s\\S]*?(?=<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
             self.main)
 
     # ore than one nominator is posible
     def get_nominators(self):
         return re.findall(
-            'Nominator(?: \d)?:</b>[\s\S]*?(?=<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
+            'Nominator(?: \\d)?:</b>[\\s\\S]*?(?=<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
             self.main)
 
     # eprecated
@@ -78,7 +62,7 @@ class Parser:
         everyone.extend(self.get_nominators())
         return everyone
 
-    def get_nominations(self):
+    def insert_nominations(self):
         nomination_year, nomination_type = self.get_nomination_data()
         nominees_data, nominators_data = self.get_people()
         nominees = self.parse_basic_info(nominees_data)
@@ -122,7 +106,7 @@ class Parser:
 
     def get_nomination_data(self):
         nomination_data = re.search(
-            '(?<=<td colspan="2" style="border: 0px;">Nomination for Nobel )[\s\S]*?(<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
+            '(?<=<td colspan="2" style="border: 0px;">Nomination for Nobel )[\\s\\S]*?(<tr><td colspan="2" style="border: 0px;">&nbsp;</td></tr>)',
             self.main).group()
         nomination_for = prizes[re.search('.*(?=</td>)',
                                           nomination_data).group()]
@@ -137,8 +121,8 @@ class Parser:
         if found is None:
             return
         for prized in found:
-            prize = re.search('(?<=Nobel ).*(?= \d{4})', prized).group()
-            year = re.search('(?<=' + prize + ' )\d{4}', prized).group()
+            prize = re.search('(?<=Nobel ).*(?= \\d{4})', prized).group()
+            year = re.search('(?<=' + prize + ' )\\d{4}', prized).group()
             person.winner = True
             person.prizes += prizes[prize] + " in " + year + "|"
             person.nobel.append({
@@ -151,7 +135,7 @@ class Parser:
     def parse_name(text, person):
         # namearr = text.split('">')
         # return [namearr[0], re.sub("<", "", namearr[1])]
-        name_result = re.findall('(?<=people.php\?id=)\d*.*?>\w*.*?<', text)
+        name_result = re.findall('(?<=people.php\\?id=)\\d*.*?>\\w*.*?<', text)
         if not name_result:
             name = re.search(
                 '(?<=Name:</span></td><td style="border: 0px;">)(.*)(?=</)',
@@ -184,3 +168,50 @@ class Parser:
         person.city = propertiesHash["City"]
         person.state = propertiesHash["State"]
         person.country = propertiesHash["Country"]
+
+
+# adds a missing prize to the given nominee
+def add_ch_win_to_nominee(nominee_id: str, year):
+    handler = MongoHandler("people")
+    person = handler.get_person_by_id(nominee_id)
+    person['winner'] = True
+    person['nobel'] = person['nobel'] + [{"type": "C", "year": str(year), "name": "Prize in Chemistry"}]
+    person['prizes'] = person['prizes'] + "C in "+str(year)+ "|"
+    handler.update_person(person)
+
+
+def insert_missing_nominations():
+    add_ch_win_to_nominee("10654", 1967)
+    add_ch_win_to_nominee("13019", 1967)
+    add_ch_win_to_nominee("11157", 1967)
+    add_ch_win_to_nominee("10476", 1968)
+    add_ch_win_to_nominee("10669", 1969)
+    add_ch_win_to_nominee("3933", 1969)
+    add_ch_win_to_nominee("10889", 1970)
+
+
+def clean_names(handler):
+    for person in handler.get_all():
+        person['name'] = html.unescape(person['name'])
+        handler.update_person(person)
+
+
+def main(argument):
+    handler = MongoHandler("people")
+    for file in glob.glob(argument + "**/*.html"):
+        parse_html_file(file, handler)
+    clean_names(handler)
+    insert_missing_nominations()
+
+
+def parse_html_file(file, handler):
+    file = open(file, mode="r", errors="replace")
+    data = file.read()
+    parser = Parser(data, handler, file.name)
+    parser.export_people()
+    parser.insert_nominations()
+    file.close()
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])
