@@ -54,6 +54,8 @@ Data example:
     		},
     }`
 
+run this script with `python parse.py <html_files_directory>`
+
 the main method will also insert missing data into the database.
 
 ## relationship.py
