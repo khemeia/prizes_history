@@ -1,15 +1,15 @@
 # prizes_history
 
-This repository contains the code used to scrape and parse the nobels nominations database.
+This repository contains the code used to scrape and parse the Nobels nominations database.
 
 ## downNobelDB
 
-This script will download all the nominations for the chemistry prizes from 1901 to 1971 into the directory `./temphtmldir`.\
-run it with `bash downNobleDB`.
+This script downloads all nominations for the chemistry prize from 1901 to 1970 into the directory `./temphtmldir`.\
+Run it with `bash downNobleDB`.
 
 ## parse.py
 
-this file can parse the downloaded HTML files into structs containing all the information about the nominators/nominees and insert them
+This file parses the downloaded HTML files into structs containing all the information about the nominators/nominees and insert them
 into a mongodb database.
 
 Data example:
@@ -54,13 +54,13 @@ Data example:
     		},
     }`
 
-run this script with `python parse.py <html_files_directory>`
+Run this script with `python parse.py <html_files_directory>`
 
-the main method will also insert missing data into the database.
+The main method inserts missing data into the database. %%%This line is not clear, what happens with those missing data?%%%%
 
 ## relationship.py
 
-this script will take the nominations of each nominee in the db and create a relationship with the corresponding nominator:
+This script takes the nominations of each nominee in the db and creates a relationship with the corresponding nominator (a relationship here corresponds to a commitments in the paper we published using this information):
 | first_nomin_y | last_nomin_y | n_nominations | nominator_NP | nominator_id | nominator_name | nominee_NP | nominee_id | nominee_name |
 |---------------|--------------|---------------|--------------|--------------|--------------------|-------------|------------|---------------|
 | 1920 | 1924 | 2 | C in 1903\| | 511 | Svante A Arrhenius | P in 1926\| | 7136 | Jean B Perrin |
